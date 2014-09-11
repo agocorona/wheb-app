@@ -12,6 +12,7 @@ import qualified System.Random as SR
 import           Control.Monad (replicateM)
 import           Text.Read (readMaybe)
 import qualified Data.Text as T
+import           Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Maybe
 
 import Network.URI (parseURI, uriPath)
@@ -83,8 +84,9 @@ shortenUrl = do
 
 expandUrl :: ShortHandler
 expandUrl = do
-  code <- getRouteParam "code"
-  redisE <- runRedis $ get (BC.pack (T.unpack code))
+  codeT <- getRouteParam "code"
+  let code = encodeUtf8 codeT
+  redisE <- runRedis $ get code
   case redisE of
     Left reply ->
       renderHtml $ layout $ do
@@ -92,7 +94,7 @@ expandUrl = do
     Right urlM ->
       case urlM of
         Just url ->
-          redirect (T.pack (BC.unpack url))
+          redirect $ decodeUtf8 url
         Nothing ->
           renderHtml $ layout $ do
             H.p "Not found"
