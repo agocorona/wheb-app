@@ -14,7 +14,15 @@ import           Text.Read (readMaybe)
 import qualified Data.Text as T
 import Data.Maybe
 
-renderHtml :: H.Html -> MinHandler
+import Network.URI (parseURI, uriPath)
+
+data WhebShort = WhebShort RedisContainer
+type ShortHandler = WhebHandler WhebShort ()
+
+instance RedisApp WhebShort where
+  getRedisContainer (WhebShort rc) = rc
+
+renderHtml :: H.Html -> ShortHandler
 renderHtml = builder "text/html" . renderHtmlBuilder
 
 mainForm' :: H.Html
@@ -29,7 +37,7 @@ layout html = H.docTypeHtml $ do
       H.title "Wheb Shortener"
     H.body $ html
 
-handleHome :: MinHandler
+handleHome :: ShortHandler
 handleHome = do
   renderHtml $ layout $ do
       H.h1 "Shortener in Wheb Example"
@@ -44,30 +52,56 @@ newShortString = do
     alphaNum = ['A'..'Z'] ++ ['0'..'9']
     randomElement l = SR.randomRIO (0, ((length l) - 1)) >>= \d -> return (l !! d)
 
-shortenUrl :: MinHandler
+shortenUrl :: ShortHandler
 shortenUrl = do
   urlM <- getPOSTParam "url"
   short <- newShortString
-  renderHtml $ layout $ do
-    H.h1 "Wheb Shortener"
-    case urlM of
-      Just url -> do
-        let fullShort = "http://localhost:3000/" ++ short
-        let originalUrl = T.unpack url
-        H.p $ "Original URL: "
-        H.p $ (H.toHtml originalUrl)
-        H.p $ "Shortened:"
-        H.p $
-          H.a H.! A.href (stringValue fullShort) $ (H.toHtml fullShort)
-      Nothing -> do
+  case urlM of
+    Just url -> do
+      let originalUrl = T.unpack url
+      let uriM = parseURI originalUrl
+      case uriM of
+        Just uri -> do
+          runRedis $ set (BC.pack short) (BC.pack originalUrl)
+          renderHtml $ layout $ do
+            H.h1 "Wheb Shortener"
+            let fullShort = "http://localhost:3000/s/" ++ short
+            H.p $ "Original URL: "
+            H.p $ (H.toHtml originalUrl)
+            H.p $ "Shortened:"
+            H.p $
+              H.a H.! A.href (stringValue fullShort) $ (H.toHtml fullShort)
+        Nothing -> do
+          renderHtml $ layout $ do
+            H.p "Enter a valid URL."
+    Nothing -> do
+      renderHtml $ layout $ do
         H.p "Enter a valid URL."
-    mainForm'
+  -- mainForm'
+
+expandUrl :: T.Text -> ShortHandler
+expandUrl code = do
+  redisE <- runRedis $ get (BC.pack (T.unpack code))
+  case redisE of
+    Left reply ->
+      renderHtml $ layout $ do
+        H.p "Not found"
+    Right urlM ->
+      case urlM of
+        Just url ->
+          redirect (T.pack (BC.unpack url))
+        Nothing ->
+          renderHtml $ layout $ do
+            H.p "Not found"
 
 
 main :: IO ()
 main = do
-  opts <- genMinOpts $ do
+  opts <- generateOptions $ do
     r <- initRedis defaultConnectInfo
-    addGET "." rootPat handleHome
-    addPOST "url" rootPat shortenUrl
+    addGET "home" rootPat handleHome
+    addPOST "shorten" rootPat shortenUrl
+    addGET "expand" (rootPat </> "s" </> (grabText "code")) $ (getRouteParam "code") >>= expandUrl
+    return (WhebShort r, ())
+
   runWhebServer opts
