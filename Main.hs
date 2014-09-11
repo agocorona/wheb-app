@@ -71,16 +71,19 @@ shortenUrl = do
             H.p $ "Shortened:"
             H.p $
               H.a H.! A.href (stringValue fullShort) $ (H.toHtml fullShort)
+            mainForm'
         Nothing -> do
           renderHtml $ layout $ do
             H.p "Enter a valid URL."
+            mainForm'
     Nothing -> do
       renderHtml $ layout $ do
         H.p "Enter a valid URL."
-  -- mainForm'
+        mainForm'
 
-expandUrl :: T.Text -> ShortHandler
-expandUrl code = do
+expandUrl :: ShortHandler
+expandUrl = do
+  code <- getRouteParam "code"
   redisE <- runRedis $ get (BC.pack (T.unpack code))
   case redisE of
     Left reply ->
@@ -101,7 +104,7 @@ main = do
     r <- initRedis defaultConnectInfo
     addGET "home" rootPat handleHome
     addPOST "shorten" rootPat shortenUrl
-    addGET "expand" (rootPat </> "s" </> (grabText "code")) $ (getRouteParam "code") >>= expandUrl
+    addGET "expand" (rootPat </> "s" </> (grabText "code")) expandUrl
     return (WhebShort r, ())
 
   runWhebServer opts
