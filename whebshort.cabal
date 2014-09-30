@@ -26,6 +26,8 @@ executable whebshort
                       ,blaze-markup >= 0.6.1.0
                       ,text == 1.1.1.3
                       ,bytestring == 0.10.4.0
-                      ,random == 1.0.1.3
+                      ,random >= 1.0.0.0
+                      ,network >= 2.5.0.0
+
   -- hs-source-dirs:
   default-language:    Haskell2010
