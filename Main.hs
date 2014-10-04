@@ -63,7 +63,7 @@ newShortString = do
 shortenUrl :: ShortHandler
 shortenUrl = do
   urlM <- getPOSTParam "url"
-  $(logDebug) "This is a debug log message"
+  $(logDebug)  "This is a debug log message "
   short <- newShortString
   case urlM of
     Just url -> do
