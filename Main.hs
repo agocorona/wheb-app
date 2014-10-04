@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, TemplateHaskell #-}
 import Web.Wheb
 import Web.Wheb.Plugins.Redis
 
@@ -15,10 +15,16 @@ import qualified Data.Text as T
 import           Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Maybe
 
+import Control.Monad.Trans.Class (lift)
+
+import Control.Monad.Logger (LoggingT, runStdoutLoggingT, logDebug, MonadLogger)
+
 import Network.URI (parseURI, uriPath)
 
 data WhebShort = WhebShort RedisContainer
 type ShortHandler = WhebHandler WhebShort ()
+type ShortHandlerT m a = WhebHandlerT WhebShort () m
+-- type LoggingHandler = LoggingT (ShortHandlerT) ()
 
 instance RedisApp WhebShort where
   getRedisContainer (WhebShort rc) = rc
@@ -38,9 +44,10 @@ layout html = H.docTypeHtml $ do
       H.title "Wheb Shortener"
     H.body $ html
 
-handleHome :: ShortHandler
+handleHome :: LoggingT (WhebT WhebShort () IO) HandlerResponse
 handleHome = do
   renderHtml $ layout $ do
+      $(logDebug) "This is a debug log message"
       H.h1 "Shortener in Wheb Example"
       mainForm'
 
@@ -104,9 +111,10 @@ main :: IO ()
 main = do
   opts <- generateOptions $ do
     r <- initRedis defaultConnectInfo
-    addGET "home" rootPat handleHome
+    addGET "home" rootPat $ runStdoutLoggingT $ lift $ handleHome
     addPOST "shorten" rootPat shortenUrl
     addGET "expand" (rootPat </> "s" </> (grabText "code")) expandUrl
     return (WhebShort r, ())
 
   runWhebServer opts
+
