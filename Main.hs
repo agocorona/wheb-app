@@ -47,7 +47,7 @@ layout html = H.docTypeHtml $ do
 handleHome :: LoggingT (WhebT WhebShort () IO) HandlerResponse
 handleHome = do
   renderHtml $ layout $ do
-      $(logDebug) "This is a debug log message"
+
       H.h1 "Shortener in Wheb Example"
       mainForm'
 
@@ -63,6 +63,7 @@ newShortString = do
 shortenUrl :: ShortHandler
 shortenUrl = do
   urlM <- getPOSTParam "url"
+  $(logDebug) "This is a debug log message"
   short <- newShortString
   case urlM of
     Just url -> do
@@ -111,7 +112,7 @@ main :: IO ()
 main = do
   opts <- generateOptions $ do
     r <- initRedis defaultConnectInfo
-    addGET "home" rootPat $ runStdoutLoggingT $ lift $ handleHome
+    addGET "home" rootPat $  handleHome
     addPOST "shorten" rootPat shortenUrl
     addGET "expand" (rootPat </> "s" </> (grabText "code")) expandUrl
     return (WhebShort r, ())
