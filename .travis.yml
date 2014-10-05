@@ -1,5 +1,1 @@
 language: haskell
-ghc:
-  - 7.6
-before_install:
-  - cabal install --reinstall --force-reinstalls  

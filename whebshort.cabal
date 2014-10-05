@@ -20,8 +20,7 @@ executable whebshort
   -- other-modules:
   -- other-extensions:
   build-depends:       base >=3 && <9
-                      ,Wheb
-
+                      ,Wheb-0.3.0.0
                       ,blaze-html
                       ,blaze-markup
                       ,network
